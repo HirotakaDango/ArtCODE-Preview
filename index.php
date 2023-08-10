@@ -107,7 +107,7 @@ if ($result) {
               <div class="modal-body text-center">
                 <div class="row featurette">
                   <div class="col-md-7 order-md-1">
-                    <img class="img-fluid lazy-load" data-src="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
+                    <img class="img-fluid lazy-load mb-2" data-src="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
                   </div>
                   <div class="col-md-5 order-md-2">
                     <p class="text-start fw-semibold" style="word-wrap: break-word;">
