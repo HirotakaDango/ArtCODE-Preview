@@ -51,6 +51,7 @@ if ($result) {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ArtCODE - Preview</title>
+    <link rel="icon" type="image/png" href="<?php echo $websiteUrl; ?>/icon/favicon.png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   </head>
@@ -87,13 +88,25 @@ if ($result) {
       </nav>
     </form>
     <?php
+      $limit = 50;
+      $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
+      $offset = ($page - 1) * $limit;
+
       $sourceApiUrl = $websiteUrl . '/api.php'; // Construct API URL based on user input
       $json = file_get_contents($sourceApiUrl);
-      $images = json_decode($json, true);
-    ?>
+      $data = json_decode($json, true);
 
+      $images = $data['images'];
+      $imageChildData = $data['image_child'];
+
+      $totalImages = count($images);
+      $totalPages = ceil($totalImages / $limit); // Calculate total number of pages
+
+      // Display images within the specified limit and offset
+      $displayImages = array_slice($images, $offset, $limit);
+    ?>
     <div class="images mt-2">
-      <?php foreach ($images as $image): ?>
+      <?php foreach ($displayImages as $image): ?>
         <a class="imagesA rounded" href="#" data-bs-toggle="modal" data-bs-target="#imageModal<?= $image['id']; ?>">
           <img class="imagesImg lazy-load" data-src="<?= $websiteUrl . '/' . $thumbPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
         </a>
@@ -104,12 +117,21 @@ if ($result) {
                 <h5 class="modal-title fw-bold" id="imageModalLabel"><?= $image['title']; ?></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
-              <div class="modal-body text-center">
-                <div class="row featurette">
-                  <div class="col-md-7 order-md-1">
-                    <img class="img-fluid lazy-load mb-2" data-src="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
-                  </div>
-                  <div class="col-md-5 order-md-2">
+              <div class="modal-body text-center p-0">
+                <div class="cool-6">
+                  <img class="img-100 lazy-load mb-1" data-src="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
+                  <?php
+                    foreach ($imageChildData as $childImage) {
+                      if ($childImage['image_id'] === $image['id']) {
+                        echo '<img class="img-100 lazy-load mb-1" data-src="' . $websiteUrl . '/' . $folderPath . '/' . $childImage['filename'] . '" alt="Child Image">';
+                      }
+                    }
+                  ?>
+                </div>
+                <div class="cool-6">
+                  <div class="container-fluid">
+                    <p class="text-start"><small><i>images uploaded by <a href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><?= $image['artist']; ?></a></i></small></p>
+                    <h5 class="text-center fw-bold mt-4"><?= $image['title']; ?></h5>
                     <p class="text-start fw-semibold" style="word-wrap: break-word;">
                       <?php
                         $messageText = $image['imgdesc'];
@@ -125,24 +147,29 @@ if ($result) {
                         echo $formattedTextWithLineBreaks;
                       ?>
                     </p>
-                    <div class="btn-group gap-2 mt-2">
-                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" download>Download Image</a>
-                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?= $websiteUrl; ?>/image.php?artworkid=<?= $image['id']; ?>" target="_blank">Original Source</a>
+                    <div class="btn-group w-100 gap-1 mt-2">
+                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><i class="bi bi-person-circle"></i> <?= $image['artist']; ?></a>
+                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?= $websiteUrl; ?>/image.php?artworkid=<?= $image['id']; ?>" target="_blank"><i class="bi bi-box-arrow-up-right"></i> original source</a>
                     </div>
-                    <div class="container mt-2">
+                    <div class="btn-group w-100 gap-1 mt-1">
+                      <button class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50 disabled"><?= $image['view_count']; ?> views</button>
+                      <button class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50 disabled"><?= $image['favorites_count']; ?> favorites</button>
+                    </div>
+                    <div class="container mt-1">
                       <?php
                         $tags = explode(',', $image['tags']);
                         foreach ($tags as $tag) {
                           $tag = trim($tag);
                           if (!empty($tag)) {
-                      ?>
-                        <a href="<?= $websiteUrl; ?>/tagged_images.php?tag=<?php echo urlencode($tag); ?>"
-                          class="btn btn-sm btn-secondary mb-1 rounded-3 fw-bold opacity-50">
-                          <i class="bi bi-tags-fill"></i> <?php echo $tag; ?>
-                        </a>
-                      <?php }
+                        ?>
+                          <a href="<?= $websiteUrl; ?>/tagged_images.php?tag=<?php echo urlencode($tag); ?>"
+                            class="btn btn-sm btn-secondary mb-1 rounded-3 fw-bold opacity-50">
+                            <i class="bi bi-tags-fill"></i> <?php echo $tag; ?>
+                          </a>
+                        <?php }
                       } ?>
                     </div>
+                    <br>
                   </div>
                 </div>
               </div>
@@ -150,6 +177,29 @@ if ($result) {
           </div>
         </div>
       <?php endforeach; ?>
+    </div>
+    <div class="pagination d-flex gap-1 justify-content-center mt-3">
+      <?php if ($page > 1): ?>
+        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page - 1; ?>">Previous</a>
+      <?php endif; ?>
+  
+      <?php
+        // Calculate the range of page numbers to display
+        $startPage = max($page - 2, 1);
+        $endPage = min($page + 2, $totalPages);
+
+        // Display page numbers within the range
+        for ($i = $startPage; $i <= $endPage; $i++) {
+          if ($i === $page) {
+            echo '<span class="btn btn-sm btn-primary active fw-bold">' . $i . '</span>';
+          } else {
+            echo '<a class="btn btn-sm btn-primary fw-bold" href="?page=' . $i . '">' . $i . '</a>';
+          }
+        }
+      ?>
+      <?php if ($page < $totalPages): ?>
+        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page + 1; ?>">Next</a>
+      <?php endif; ?>
     </div>
     <div class="mt-5"></div>
     <style>
@@ -184,6 +234,15 @@ if ($result) {
         object-fit: cover;
         height: 200px;
         transition: transform 0.5s ease-in-out;
+      }
+      
+      .cool-6 {
+        width: 100%;
+        padding: 0;
+      }
+      
+      .img-100 {
+        width: 100%;
       }
     </style>
     <script>
@@ -229,7 +288,7 @@ if ($result) {
       let imageContainer = document.getElementById("image-container");
 
       // Set the default placeholder image
-      const defaultPlaceholder = "icon/bg.png";
+      const defaultPlaceholder = "<?php echo $websiteUrl; ?>/icon/bg.png";
 
       if ("IntersectionObserver" in window) {
         let imageObserver = new IntersectionObserver(function(entries, observer) {
