@@ -93,111 +93,129 @@ if ($result) {
       $offset = ($page - 1) * $limit;
 
       $sourceApiUrl = $websiteUrl . '/api.php'; // Construct API URL based on user input
-      $json = file_get_contents($sourceApiUrl);
-      $data = json_decode($json, true);
 
-      $images = $data['images'];
-      $imageChildData = $data['image_child'];
+      try {
+        $json = @file_get_contents($sourceApiUrl);
+        if ($json === false) {
+          throw new Exception("<h5 class='text-center'>Error fetching data from API</h5>");
+        }
 
-      $totalImages = count($images);
-      $totalPages = ceil($totalImages / $limit); // Calculate total number of pages
+        $data = json_decode($json, true);
 
-      // Display images within the specified limit and offset
-      $displayImages = array_slice($images, $offset, $limit);
+        if (!is_array($data) || empty($data)) {
+          throw new Exception("<h5 class='text-center'>No data found</h5>");
+        }
+
+        $images = $data['images'];
+        $imageChildData = $data['image_child'];
+
+        $totalImages = count($images);
+        $totalPages = ceil($totalImages / $limit); // Calculate total number of pages
+
+        // Display images within the specified limit and offset
+        $displayImages = array_slice($images, $offset, $limit);
+      } catch (Exception $e) {
+        echo "<h5 class='text-center mt-3 fw-bold'>Error or nothing found: </h5>" . $e->getMessage();
+      }
     ?>
     <div class="images mt-2">
-      <?php foreach ($displayImages as $image): ?>
-        <a class="imagesA rounded" href="#" data-bs-toggle="modal" data-bs-target="#imageModal<?= $image['id']; ?>">
-          <img class="imagesImg lazy-load" data-src="<?= $websiteUrl . '/' . $thumbPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
-        </a>
-        <div class="modal fade" id="imageModal<?= $image['id']; ?>" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
-          <div class="modal-dialog modal-fullscreen">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h5 class="modal-title fw-bold" id="imageModalLabel"><?= $image['title']; ?></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-              </div>
-              <div class="modal-body text-center p-0">
-                <div class="cool-6">
-                  <img class="img-100 lazy-load mb-1" data-src="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
-                  <?php
-                    foreach ($imageChildData as $childImage) {
-                      if ($childImage['image_id'] === $image['id']) {
-                        echo '<img class="img-100 lazy-load mb-1" data-src="' . $websiteUrl . '/' . $folderPath . '/' . $childImage['filename'] . '" alt="Child Image">';
-                      }
-                    }
-                  ?>
+      <?php if (empty($displayImages)): ?>
+        <h5 class="position-absolute top-50 start-50 translate-middle fw-bold">No images found</h5>
+      <?php else: ?>
+        <?php foreach ($displayImages as $image): ?>
+          <a class="imagesA rounded" href="#" data-bs-toggle="modal" data-bs-target="#imageModal<?= $image['id']; ?>">
+            <img class="imagesImg lazy-load" data-src="<?= $websiteUrl . '/' . $thumbPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
+          </a>
+          <div class="modal fade" id="imageModal<?= $image['id']; ?>" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-fullscreen">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title fw-bold" id="imageModalLabel"><?= $image['title']; ?></h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="cool-6">
-                  <div class="container-fluid">
-                    <p class="text-start"><small><i>images uploaded by <a href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><?= $image['artist']; ?></a></i></small></p>
-                    <h5 class="text-center fw-bold mt-4"><?= $image['title']; ?></h5>
-                    <p class="text-start fw-semibold" style="word-wrap: break-word;">
-                      <?php
-                        $messageText = $image['imgdesc'];
-                        $messageTextWithoutTags = strip_tags($messageText);
-                        $pattern = '/\bhttps?:\/\/\S+/i';
+                <div class="modal-body text-center p-0">
+                  <div class="cool-6">
+                    <img class="img-100 lazy-load mb-1" data-src="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
+                    <?php
+                      foreach ($imageChildData as $childImage) {
+                        if ($childImage['image_id'] === $image['id']) {
+                          echo '<img class="img-100 lazy-load mb-1" data-src="' . $websiteUrl . '/' . $folderPath . '/' . $childImage['filename'] . '" alt="Child Image">';
+                        }
+                      }
+                    ?>
+                  </div>
+                  <div class="cool-6">
+                    <div class="container-fluid">
+                      <p class="text-start"><small><i>images uploaded by <a href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><?= $image['artist']; ?></a></i></small></p>
+                      <h5 class="text-center fw-bold mt-4"><?= $image['title']; ?></h5>
+                      <p class="text-start fw-semibold" style="word-wrap: break-word;">
+                        <?php
+                          $messageText = $image['imgdesc'];
+                          $messageTextWithoutTags = strip_tags($messageText);
+                          $pattern = '/\bhttps?:\/\/\S+/i';
     
-                        $formattedText = preg_replace_callback($pattern, function ($matches) {
-                          $url = htmlspecialchars($matches[0]);
-                          return '<a href="' . $url . '">' . $url . '</a>';
-                        }, $messageTextWithoutTags);
+                          $formattedText = preg_replace_callback($pattern, function ($matches) {
+                            $url = htmlspecialchars($matches[0]);
+                            return '<a href="' . $url . '">' . $url . '</a>';
+                          }, $messageTextWithoutTags);
     
-                        $formattedTextWithLineBreaks = nl2br($formattedText);
-                        echo $formattedTextWithLineBreaks;
-                      ?>
-                    </p>
-                    <div class="btn-group w-100 gap-1 mt-2">
-                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><i class="bi bi-person-circle"></i> <?= $image['artist']; ?></a>
-                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?= $websiteUrl; ?>/image.php?artworkid=<?= $image['id']; ?>" target="_blank"><i class="bi bi-box-arrow-up-right"></i> original source</a>
-                    </div>
-                    <div class="btn-group w-100 gap-1 mt-1">
-                      <button class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50 disabled"><?= $image['view_count']; ?> views</button>
-                      <button class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50 disabled"><?= $image['favorites_count']; ?> favorites</button>
-                    </div>
-                    <div class="container mt-1">
-                      <?php
-                        $tags = explode(',', $image['tags']);
-                        foreach ($tags as $tag) {
-                          $tag = trim($tag);
-                          if (!empty($tag)) {
+                          $formattedTextWithLineBreaks = nl2br($formattedText);
+                          echo $formattedTextWithLineBreaks;
                         ?>
-                          <a href="<?= $websiteUrl; ?>/tagged_images.php?tag=<?php echo urlencode($tag); ?>"
-                            class="btn btn-sm btn-secondary mb-1 rounded-3 fw-bold opacity-50">
-                            <i class="bi bi-tags-fill"></i> <?php echo $tag; ?>
-                          </a>
-                        <?php }
-                      } ?>
+                      </p>
+                      <div class="btn-group w-100 gap-1 mt-2">
+                        <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><i class="bi bi-person-circle"></i> <?= $image['artist']; ?></a>
+                        <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?= $websiteUrl; ?>/image.php?artworkid=<?= $image['id']; ?>" target="_blank"><i class="bi bi-box-arrow-up-right"></i> original source</a>
+                      </div>
+                      <div class="btn-group w-100 gap-1 mt-1">
+                        <button class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50 disabled"><?= $image['view_count']; ?> views</button>
+                        <button class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50 disabled"><?= $image['favorites_count']; ?> favorites</button>
+                      </div>
+                      <div class="container mt-1">
+                        <?php
+                          $tags = explode(',', $image['tags']);
+                          foreach ($tags as $tag) {
+                            $tag = trim($tag);
+                            if (!empty($tag)) {
+                          ?>
+                            <a href="<?= $websiteUrl; ?>/tagged_images.php?tag=<?php echo urlencode($tag); ?>"
+                              class="btn btn-sm btn-secondary mb-1 rounded-3 fw-bold opacity-50">
+                              <i class="bi bi-tags-fill"></i> <?php echo $tag; ?>
+                            </a>
+                          <?php }
+                        } ?>
+                      </div>
+                      <br>
                     </div>
-                    <br>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      <?php endforeach; ?>
+        <?php endforeach; ?>
+      <?php endif; ?>
     </div>
     <div class="pagination d-flex gap-1 justify-content-center mt-3">
-      <?php if ($page > 1): ?>
+      <?php if (isset($page) && $page > 1): ?>
         <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page - 1; ?>">Previous</a>
       <?php endif; ?>
-  
       <?php
-        // Calculate the range of page numbers to display
-        $startPage = max($page - 2, 1);
-        $endPage = min($page + 2, $totalPages);
+        if (isset($page) && isset($totalPages)) {
+          // Calculate the range of page numbers to display
+          $startPage = max($page - 2, 1);
+          $endPage = min($page + 2, $totalPages);
 
-        // Display page numbers within the range
-        for ($i = $startPage; $i <= $endPage; $i++) {
-          if ($i === $page) {
-            echo '<span class="btn btn-sm btn-primary active fw-bold">' . $i . '</span>';
-          } else {
-            echo '<a class="btn btn-sm btn-primary fw-bold" href="?page=' . $i . '">' . $i . '</a>';
+          // Display page numbers within the range
+          for ($i = $startPage; $i <= $endPage; $i++) {
+            if ($i === $page) {
+              echo '<span class="btn btn-sm btn-primary active fw-bold">' . $i . '</span>';
+            } else {
+              echo '<a class="btn btn-sm btn-primary fw-bold" href="?page=' . $i . '">' . $i . '</a>';
+            }
           }
         }
       ?>
-      <?php if ($page < $totalPages): ?>
+      <?php if (isset($page) && isset($totalPages) && $page < $totalPages): ?>
         <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page + 1; ?>">Next</a>
       <?php endif; ?>
     </div>
