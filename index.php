@@ -126,8 +126,8 @@ if ($result) {
                       ?>
                     </p>
                     <div class="btn-group gap-2 mt-2">
-                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold" href="<?= $websiteUrl . '/' . $thumbPath . '/' . $image['filename']; ?>" download>Download Image</a>
-                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold" href="<?= $websiteUrl; ?>/image.php?artworkid=<?= $image['id']; ?>" target="_blank">Original Source</a>
+                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" download>Download Image</a>
+                      <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?= $websiteUrl; ?>/image.php?artworkid=<?= $image['id']; ?>" target="_blank">Original Source</a>
                     </div>
                     <div class="container mt-2">
                       <?php
