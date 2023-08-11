@@ -207,9 +207,14 @@ if ($result) {
       <?php endif; ?>
     </div>
     <div class="pagination d-flex gap-1 justify-content-center mt-3">
-      <?php if (isset($page) && $page > 1): ?>
-        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page - 1; ?>">Previous</a>
+      <?php if (isset($page) && isset($totalPages)): ?>
+        <a class="btn btn-sm btn-primary fw-bold" href="?page=1"><i class="bi text-stroke bi-chevron-double-left"></i></a>
       <?php endif; ?>
+
+      <?php if (isset($page) && $page > 1): ?>
+        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page - 1; ?>"><i class="bi text-stroke bi-chevron-left"></i></a>
+      <?php endif; ?>
+
       <?php
         if (isset($page) && isset($totalPages)) {
           // Calculate the range of page numbers to display
@@ -226,8 +231,13 @@ if ($result) {
           }
         }
       ?>
+
       <?php if (isset($page) && isset($totalPages) && $page < $totalPages): ?>
-        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page + 1; ?>">Next</a>
+        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page + 1; ?>"><i class="bi text-stroke bi-chevron-right"></i></a>
+      <?php endif; ?>
+
+      <?php if (isset($page) && isset($totalPages)): ?>
+        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $totalPages; ?>"><i class="bi text-stroke bi-chevron-double-right"></i></a>
       <?php endif; ?>
     </div>
     <div class="mt-5"></div>
