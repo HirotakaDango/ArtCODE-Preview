@@ -150,17 +150,21 @@ if ($result) {
                       <h5 class="text-center fw-bold mt-4"><?= $image['title']; ?></h5>
                       <p class="text-start fw-semibold" style="word-wrap: break-word;">
                         <?php
-                          $messageText = $image['imgdesc'];
-                          $messageTextWithoutTags = strip_tags($messageText);
-                          $pattern = '/\bhttps?:\/\/\S+/i';
-    
-                          $formattedText = preg_replace_callback($pattern, function ($matches) {
-                            $url = htmlspecialchars($matches[0]);
-                            return '<a href="' . $url . '">' . $url . '</a>';
-                          }, $messageTextWithoutTags);
-    
-                          $formattedTextWithLineBreaks = nl2br($formattedText);
-                          echo $formattedTextWithLineBreaks;
+                          if (!empty($image['imgdesc'])) {
+                            $messageText = $image['imgdesc'];
+                            $messageTextWithoutTags = strip_tags($messageText);
+                            $pattern = '/\bhttps?:\/\/\S+/i';
+
+                            $formattedText = preg_replace_callback($pattern, function ($matches) {
+                              $url = htmlspecialchars($matches[0]);
+                              return '<a href="' . $url . '">' . $url . '</a>';
+                            }, $messageTextWithoutTags);
+
+                            $formattedTextWithLineBreaks = nl2br($formattedText);
+                            echo $formattedTextWithLineBreaks;
+                          } else {
+                            echo "Image description is empty.";
+                          }
                         ?>
                       </p>
                       <div class="btn-group w-100 gap-1 mt-2">
@@ -173,17 +177,24 @@ if ($result) {
                       </div>
                       <div class="container mt-1">
                         <?php
-                          $tags = explode(',', $image['tags']);
-                          foreach ($tags as $tag) {
-                            $tag = trim($tag);
-                            if (!empty($tag)) {
-                          ?>
-                            <a href="<?= $websiteUrl; ?>/tagged_images.php?tag=<?php echo urlencode($tag); ?>"
-                              class="btn btn-sm btn-secondary mb-1 rounded-3 fw-bold opacity-50">
-                              <i class="bi bi-tags-fill"></i> <?php echo $tag; ?>
-                            </a>
-                          <?php }
-                        } ?>
+                          if (!empty($image['tags'])) {
+                            $tags = explode(',', $image['tags']);
+                            foreach ($tags as $tag) {
+                              $tag = trim($tag);
+                              if (!empty($tag)) {
+                            ?>
+                              <a href="<?= $websiteUrl; ?>/tagged_images.php?tag=<?php echo urlencode($tag); ?>"
+                                class="btn btn-sm btn-secondary mb-1 rounded-3 fw-bold opacity-50">
+                                <i class="bi bi-tags-fill"></i> <?php echo $tag; ?>
+                              </a>
+                            <?php
+                              }
+                            }
+                          } else {
+                            echo "No tags available.";
+                          }
+                        ?>
+
                       </div>
                       <br>
                     </div>
