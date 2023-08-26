@@ -240,7 +240,7 @@ if ($result) {
         <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $totalPages; ?>"><i class="bi text-stroke bi-chevron-double-right"></i></a>
       <?php endif; ?>
     </div>
-    <div class="mt-5"></div>
+    <div class="my-5 text-center"><a class="text-decoration-none" href="table.php"><i class="bi bi-table"></i> show all data</a></div>
     <style>
       .images {
         display: grid;
