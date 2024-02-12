@@ -3,6 +3,7 @@
 $websiteUrl = '';
 $folderPath = '';
 $thumbPath = '';
+$numPage = '';
 
 // SQLite database connection
 $db = new SQLite3('your_database.sqlite'); // Replace with your actual database file
@@ -12,7 +13,8 @@ $createTableQuery = "CREATE TABLE IF NOT EXISTS settings (
   id INTEGER PRIMARY KEY,
   website_url TEXT,
   folder_path TEXT,
-  thumb_path TEXT
+  thumb_path TEXT,
+  number_page TEXT
 )";
 $db->exec($createTableQuery);
 
@@ -20,13 +22,15 @@ $db->exec($createTableQuery);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $websiteUrl = $_POST['website_url'];
   $folderPath = $_POST['folder_path'];
-  $thumbPath = $_POST['thumb_path']; // Corrected this line
+  $thumbPath = $_POST['thumb_path'];
+  $numPage = $_POST['number_page'];
 
   // Update or insert URL and path in the database
-  $stmt = $db->prepare("INSERT OR REPLACE INTO settings (id, website_url, folder_path, thumb_path) VALUES (1, :website_url, :folder_path, :thumb_path)");
+  $stmt = $db->prepare("INSERT OR REPLACE INTO settings (id, website_url, folder_path, thumb_path, number_page) VALUES (1, :website_url, :folder_path, :thumb_path, :number_page)");
   $stmt->bindValue(':website_url', $websiteUrl);
   $stmt->bindValue(':folder_path', $folderPath);
   $stmt->bindValue(':thumb_path', $thumbPath);
+  $stmt->bindValue(':number_page', $numPage);
   $stmt->execute();
 
   // Redirect to prevent form resubmission
@@ -35,13 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch website URL, folder path, and thumb path from the database
-$selectQuery = "SELECT website_url, folder_path, thumb_path FROM settings WHERE id = 1"; // Corrected this line
+$selectQuery = "SELECT website_url, folder_path, thumb_path, number_page FROM settings WHERE id = 1"; // Corrected this line
 $result = $db->querySingle($selectQuery, true);
 
 if ($result) {
   $websiteUrl = $result['website_url'];
   $folderPath = $result['folder_path'];
   $thumbPath = $result['thumb_path'];
+  $numPage = $result['number_page'];
 }
 ?>
 
@@ -56,39 +61,19 @@ if ($result) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
   </head>
   <body>
-    <form method="POST">
-      <nav class="navbar navbar-expand-lg bg-body-tertiary shadow">
-        <div class="container-fluid gap-2 justify-content-end">
-          <a class="navbar-brand me-auto fw-bold text-secondary" href="/">ArtCODE</a>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-          </button>
-          <div class="collapse navbar-collapse" id="navbarSupportedContent">
-            <ul class="navbar-nav ms-auto mb-2 mb-lg-0 gap-1"> <!-- Changed me-auto to ms-auto -->
-              <li class="nav-item">
-                <button id="themeToggle" class="btn btn-primary fw-bold w-100">
-                  <i id="themeIcon" class="bi"></i> toggle theme
-                </button>
-              </li>
-              <li class="nav-item">
-                <input class="form-control" type="text" name="website_url" value="<?php echo $websiteUrl; ?>" placeholder="website url">
-              </li>
-              <li class="nav-item">
-                <input class="form-control" type="text" name="folder_path" value="<?php echo $folderPath; ?>" placeholder="folder path">
-              </li>
-              <li class="nav-item">
-                <input class="form-control" type="text" name="thumb_path" value="<?php echo $thumbPath; ?>" placeholder="thumbnail path">
-              </li>
-              <li class="nav-item">
-                <button class="btn btn-primary w-100 fw-bold">save</button>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </nav>
-    </form>
+    <nav class="navbar navbar-expand-lg bg-body-tertiary shadow">
+      <div class="container-fluid gap-2 justify-content-end">
+        <a class="navbar-brand me-auto fw-bold" href="index.php">ArtCODE</a>
+        <button id="themeToggle" class="btn btn-primary fw-bold">
+          <i id="themeIcon" class="bi"></i> toggle theme
+        </button>
+      </div>
+    </nav>
+    <button type="button" class="position-absolute bottom-0 end-0 m-2 btn btn-dark rounded-pill fw-bold" data-bs-toggle="modal" data-bs-target="#settingsModal">
+      settings
+    </button>
     <?php
-      $limit = 50;
+      $limit = $numPage;
       $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
       $offset = ($page - 1) * $limit;
 
@@ -115,96 +100,119 @@ if ($result) {
         // Display images within the specified limit and offset
         $displayImages = array_slice($images, $offset, $limit);
       } catch (Exception $e) {
-        echo "<h5 class='text-center mt-3 fw-bold'>Error or nothing found: </h5>" . $e->getMessage();
+        echo "<div class='d-flex justify-content-center align-items-center vh-100'><h5 class='text-center mt-3 fw-bold'>Error or nothing found: </h5></div>" . $e->getMessage();
       }
     ?>
-    <div class="images mt-2">
+    <div class="container-fluid px-1 mt-2">
       <?php if (empty($displayImages)): ?>
         <h5 class="position-absolute top-50 start-50 translate-middle fw-bold">No images found</h5>
       <?php else: ?>
-        <?php foreach ($displayImages as $image): ?>
-          <a class="imagesA rounded" href="#" data-bs-toggle="modal" data-bs-target="#imageModal<?= $image['id']; ?>">
-            <img class="imagesImg lazy-load" data-src="<?= $websiteUrl . '/' . $thumbPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
-          </a>
-          <div class="modal fade" id="imageModal<?= $image['id']; ?>" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-fullscreen">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title fw-bold" id="imageModalLabel"><?= $image['title']; ?></h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body text-center p-0">
-                  <div class="cool-6">
-                    <img class="img-100 lazy-load mb-1" data-src="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
-                    <?php
-                      foreach ($imageChildData as $childImage) {
-                        if ($childImage['image_id'] === $image['id']) {
-                          echo '<img class="img-100 lazy-load mb-1" data-src="' . $websiteUrl . '/' . $folderPath . '/' . $childImage['filename'] . '" alt="Child Image">';
-                        }
-                      }
-                    ?>
+        <div class="row row-cols-2 row-cols-sm-2 row-cols-md-4 row-cols-lg-6 g-1">
+          <?php foreach ($displayImages as $image): ?>
+            <div class="col">
+              <div class="card border-0 rounded-4">
+                <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal<?= $image['id']; ?>">
+                  <div class="ratio ratio-1x1">
+                    <img class="rounded object-fit-cover lazy-load" data-src="<?= $websiteUrl . '/' . $thumbPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
                   </div>
-                  <div class="cool-6">
-                    <div class="container-fluid">
-                      <p class="text-start"><small><i>images uploaded by <a href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><?= $image['artist']; ?></a></i></small></p>
-                      <h5 class="text-center fw-bold mt-4"><?= $image['title']; ?></h5>
-                      <p class="text-start fw-semibold" style="word-wrap: break-word;">
+                </a>
+              </div>
+            </div>
+            <div class="modal fade" id="imageModal<?= $image['id']; ?>" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+                <div class="modal-content border-0 rounded-4">
+                  <div class="modal-header border-0">
+                    <h5 class="modal-title fw-bold" id="imageModalLabel"><?= $image['title']; ?></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <div class="row">
+                      <div class="col-md-6 h-100">
+                        <img class="w-100 h-100 rounded-3 lazy-load mb-1" data-src="<?= $websiteUrl . '/' . $folderPath . '/' . $image['filename']; ?>" alt="<?= $image['title']; ?>">
                         <?php
-                          if (!empty($image['imgdesc'])) {
-                            $messageText = $image['imgdesc'];
-                            $messageTextWithoutTags = strip_tags($messageText);
-                            $pattern = '/\bhttps?:\/\/\S+/i';
-
-                            $formattedText = preg_replace_callback($pattern, function ($matches) {
-                              $url = htmlspecialchars($matches[0]);
-                              return '<a href="' . $url . '">' . $url . '</a>';
-                            }, $messageTextWithoutTags);
-
-                            $formattedTextWithLineBreaks = nl2br($formattedText);
-                            echo $formattedTextWithLineBreaks;
-                          } else {
-                            echo "Image description is empty.";
-                          }
-                        ?>
-                      </p>
-                      <div class="btn-group w-100 gap-1 mt-2">
-                        <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><i class="bi bi-person-circle"></i> <?= $image['artist']; ?></a>
-                        <a class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50" href="<?= $websiteUrl; ?>/image.php?artworkid=<?= $image['id']; ?>" target="_blank"><i class="bi bi-box-arrow-up-right"></i> original source</a>
-                      </div>
-                      <div class="btn-group w-100 gap-1 mt-1">
-                        <button class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50 disabled"><?= $image['view_count']; ?> views</button>
-                        <button class="btn btn-sm btn-secondary rounded-3 fw-bold opacity-50 disabled"><?= $image['favorites_count']; ?> favorites</button>
-                      </div>
-                      <div class="container mt-1">
-                        <?php
-                          if (!empty($image['tags'])) {
-                            $tags = explode(',', $image['tags']);
-                            foreach ($tags as $tag) {
-                              $tag = trim($tag);
-                              if (!empty($tag)) {
-                            ?>
-                              <a href="<?= $websiteUrl; ?>/tagged_images.php?tag=<?php echo urlencode($tag); ?>"
-                                class="btn btn-sm btn-secondary mb-1 rounded-3 fw-bold opacity-50">
-                                <i class="bi bi-tags-fill"></i> <?php echo $tag; ?>
-                              </a>
-                            <?php
-                              }
+                          foreach ($imageChildData as $childImage) {
+                            if ($childImage['image_id'] === $image['id']) {
+                              echo '<img class="w-100 h-100 rounded-4 lazy-load mb-1" data-src="' . $websiteUrl . '/' . $folderPath . '/' . $childImage['filename'] . '" alt="Child Image">';
                             }
-                          } else {
-                            echo "No tags available.";
                           }
                         ?>
-
                       </div>
-                      <br>
+                      <div class="col-md-6 mt-2 mt-md-0">
+                        <div class="bg-body-tertiary rounded-3 p-3 h-100">
+                        <p class="text-start"><small><i>images uploaded by <a href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><?= $image['artist']; ?></a></i></small></p>
+                        <h5 class="text-center fw-bold mt-4"><?= $image['title']; ?></h5>
+                        <p class="text-start fw-semibold" style="word-wrap: break-word;">
+                          <?php
+                            if (!empty($image['imgdesc'])) {
+                              $messageText = $image['imgdesc'];
+                              $messageTextWithoutTags = strip_tags($messageText);
+                              $pattern = '/\bhttps?:\/\/\S+/i';
+
+                              $formattedText = preg_replace_callback($pattern, function ($matches) {
+                                $url = htmlspecialchars($matches[0]);
+                                return '<a href="' . $url . '">' . $url . '</a>';
+                              }, $messageTextWithoutTags);
+
+                              $formattedTextWithLineBreaks = nl2br($formattedText);
+                              echo $formattedTextWithLineBreaks;
+                            } else {
+                              echo "Image description is empty.";
+                            }
+                          ?>
+                        </p>
+                        <div class="btn-group w-100 gap-1 mt-2">
+                          <a class="w-50 btn btn-sm btn-secondary rounded-3 fw-bold" href="<?php echo $websiteUrl . '/artist.php?id=' . $image['userId']; ?>"><i class="bi bi-person-circle"></i> <?= $image['artist']; ?></a>
+                          <a class="w-50 btn btn-sm btn-secondary rounded-3 fw-bold" href="<?= $websiteUrl; ?>/image.php?artworkid=<?= $image['id']; ?>" target="_blank"><i class="bi bi-box-arrow-up-right"></i> original source</a>
+                        </div>
+                        <div class="btn-group w-100 gap-1 mt-1">
+                          <button class="w-50 btn btn-sm btn-secondary rounded-3 fw-bold"><?= $image['view_count']; ?> views</button>
+                          <button class="w-50 btn btn-sm btn-secondary rounded-3 fw-bold"><?= $image['favorites_count']; ?> favorites</button>
+                        </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        <?php endforeach; ?>
+          <?php endforeach; ?>
+        </div>
       <?php endif; ?>
+    </div>
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+          <div class="modal-header border-0">
+            <h1 class="modal-title fs-5" id="exampleModalLabel">Settings</h1>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form method="POST">
+            <div class="modal-body border-0">
+              <div class="form-floating mb-3">
+                <input type="text" class="form-control" id="floatingInput" name="website_url" value="<?php echo $websiteUrl; ?>" placeholder="Website address">
+                <label for="floatingInput">Website address</label>
+              </div>
+              <div class="form-floating mb-3">
+                <input type="text" class="form-control" id="floatingInput" name="folder_path" value="<?php echo $folderPath; ?>" placeholder="Images path">
+                <label for="floatingInput">Images path</label>
+              </div>
+              <div class="form-floating mb-3">
+                <input type="text" class="form-control" id="floatingInput" name="thumb_path" value="<?php echo $thumbPath; ?>" placeholder="Thumbnails path">
+                <label for="floatingInput">Thumbnails path</label>
+              </div>
+              <div class="form-floating mb-3">
+                <input type="text" class="form-control" id="floatingInput" name="number_page" value="<?php echo $numPage; ?>" placeholder="Number per page">
+                <label for="floatingInput">Number per page</label>
+              </div>
+              <div class="btn-group w-100 gap-2 border-0">
+                <button type="button" class="w-50 rounded fw-bold btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="submit" class="w-50 rounded fw-bold btn btn-primary">Save changes</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
     <div class="pagination d-flex gap-1 justify-content-center mt-3">
       <?php if (isset($page) && isset($totalPages)): ?>
@@ -240,48 +248,25 @@ if ($result) {
         <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $totalPages; ?>"><i class="bi text-stroke bi-chevron-double-right"></i></a>
       <?php endif; ?>
     </div>
-    <div class="my-5 text-center"><a class="text-decoration-none" href="table.php"><i class="bi bi-table"></i> show all data</a></div>
+    <div class="my-5 text-center"><a class="text-decoration-none fw-medium" href="table.php"><i class="bi bi-table"></i> show all data</a></div>
     <style>
-      .images {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr); /* Two columns in mobile view */
-        grid-gap: 3px;
-        justify-content: center;
-        margin-right: 3px;
-        margin-left: 3px;
-      }
-      
       .text-stroke {
         -webkit-text-stroke: 1px;
       }
 
-      @media (min-width: 768px) {
-        /* For desktop view, change the grid layout */
-        .images {
-          grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-        }
+      /* For Webkit-based browsers */
+      ::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+        border-radius: 10px;
       }
 
-      .imagesA {
-        display: block;
-        overflow: hidden;
+      ::-webkit-scrollbar-track {
+        border-radius: 0;
       }
 
-      .imagesImg {
-        width: 100%;
-        height: auto;
-        object-fit: cover;
-        height: 200px;
-        transition: transform 0.5s ease-in-out;
-      }
-      
-      .cool-6 {
-        width: 100%;
-        padding: 0;
-      }
-      
-      .img-100 {
-        width: 100%;
+      ::-webkit-scrollbar-thumb {
+        border-radius: 0;
       }
     </style>
     <script>

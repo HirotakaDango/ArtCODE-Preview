@@ -66,7 +66,10 @@ $resultCount = $primaryImageCount + $childImageCount;
   <body>
     <nav class="navbar navbar-expand-lg bg-body-tertiary shadow">
       <div class="container-fluid gap-2 justify-content-end">
-        <a class="navbar-brand me-auto fw-bold text-secondary" href="javascript:history.back()">ArtCODE</a>
+        <a class="navbar-brand me-auto fw-bold" href="index.php">ArtCODE</a>
+        <button id="themeToggle" class="btn btn-primary fw-bold">
+          <i id="themeIcon" class="bi"></i> toggle theme
+        </button>
       </div>
     </nav>
     <h1 class="fw-bold text-center mt-4">Primary Images</h1>
@@ -140,6 +143,44 @@ $resultCount = $primaryImageCount + $childImageCount;
       </div>
     </div>
     <p class="fw-bold text-center my-4"><small>Total of all images: <?php echo $resultCount; ?><small></p>
+    <script>
+      // Get the theme toggle button, icon element, and html element
+      const themeToggle = document.getElementById('themeToggle');
+      const themeIcon = document.getElementById('themeIcon');
+      const htmlElement = document.documentElement;
+
+      // Check if the user's preference is stored in localStorage
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme) {
+        htmlElement.setAttribute('data-bs-theme', savedTheme);
+        updateThemeIcon(savedTheme);
+      }
+
+      // Add an event listener to the theme toggle button
+      themeToggle.addEventListener('click', () => {
+        // Toggle the theme
+        const currentTheme = htmlElement.getAttribute('data-bs-theme');
+        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+        // Apply the new theme
+        htmlElement.setAttribute('data-bs-theme', newTheme);
+        updateThemeIcon(newTheme);
+
+        // Store the user's preference in localStorage
+        localStorage.setItem('theme', newTheme);
+      });
+
+      // Function to update the theme icon
+      function updateThemeIcon(theme) {
+        if (theme === 'dark') {
+          themeIcon.classList.remove('bi-moon-fill');
+          themeIcon.classList.add('bi-sun-fill');
+        } else {
+          themeIcon.classList.remove('bi-sun-fill');
+          themeIcon.classList.add('bi-moon-fill');
+        }
+      }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.min.js" integrity="sha384-Rx+T1VzGupg4BHQYs2gCW9It+akI2MM/mndMCy36UVfodzcJcF0GGLxZIzObiEfa" crossorigin="anonymous"></script>
   </body>
