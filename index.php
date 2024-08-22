@@ -1,213 +1,225 @@
 <?php
-// Initialize variables
-$websiteUrl = '';
-$folderPath = '';
-$thumbPath = '';
-$numPage = '';
+include 'connect.php';
 
-// SQLite database connection
-$db = new SQLite3('your_database.sqlite'); // Replace with your actual database file
+// Retrieve and sanitize parameters
+$page = isset($_GET['page']) ? intval($_GET['page']) : 1;
+$search = isset($_GET['search']) ? $_GET['search'] : ''; // Updated to handle search as string
+$display = isset($_GET['display']) ? urlencode($_GET['display']) : 'all_images';
+$sortBy = isset($_GET['sortby']) ? urlencode($_GET['sortby']) : 'newest';
+$artworkType = isset($_GET['artwork_type']) ? urlencode($_GET['artwork_type']) : '';
+$type = isset($_GET['type']) ? urlencode($_GET['type']) : '';
+$character = isset($_GET['character']) ? urlencode($_GET['character']) : '';
+$parody = isset($_GET['parody']) ? urlencode($_GET['parody']) : '';
+$tag = isset($_GET['tag']) ? urlencode($_GET['tag']) : '';
+$group = isset($_GET['group']) ? urlencode($_GET['group']) : '';
+$uid = isset($_GET['uid']) ? intval($_GET['uid']) : 0;
+$rankings = isset($_GET['rankings']) ? urlencode($_GET['rankings']) : ''; // Include rankings in the API URL
 
-// Create settings table if it doesn't exist
-$createTableQuery = "CREATE TABLE IF NOT EXISTS settings (
-  id INTEGER PRIMARY KEY,
-  website_url TEXT,
-  folder_path TEXT,
-  thumb_path TEXT,
-  number_page TEXT
-)";
-$db->exec($createTableQuery);
+// Construct API URL with encoded parameters
+$apiUrl = $baseUrl . '/api.php';
 
-// Handle form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $websiteUrl = $_POST['website_url'];
-  $folderPath = $_POST['folder_path'];
-  $thumbPath = $_POST['thumb_path'];
-  $numPage = $_POST['number_page'];
+$apiUrl .= "?display=$display&sortby=$sortBy";
+if ($uid > 0) $apiUrl .= "&uid=$uid";
+if ($artworkType) $apiUrl .= "&artwork_type=$artworkType";
+if ($type) $apiUrl .= "&type=$type";
+if ($character) $apiUrl .= "&character=$character";
+if ($parody) $apiUrl .= "&parody=$parody";
+if ($tag) $apiUrl .= "&tag=$tag";
+if ($group) $apiUrl .= "&group=$group";
+if ($rankings) $apiUrl .= "&rankings=$rankings";
+if ($search) $apiUrl .= "&search=" . urlencode($search); // Include search in the API URL
 
-  // Update or insert URL and path in the database
-  $stmt = $db->prepare("INSERT OR REPLACE INTO settings (id, website_url, folder_path, thumb_path, number_page) VALUES (1, :website_url, :folder_path, :thumb_path, :number_page)");
-  $stmt->bindValue(':website_url', $websiteUrl);
-  $stmt->bindValue(':folder_path', $folderPath);
-  $stmt->bindValue(':thumb_path', $thumbPath);
-  $stmt->bindValue(':number_page', $numPage);
-  $stmt->execute();
+// Fetch and decode JSON data
+$jsonData = @file_get_contents($apiUrl);
+$data = json_decode($jsonData, true);
 
-  // Redirect to prevent form resubmission
-  header('Location: ' . $_SERVER['REQUEST_URI']);   
-  exit();
+if ($jsonData === false || $data === null) {
+  // Handle the error
+  die('Error fetching or decoding JSON data.');
 }
 
-// Fetch website URL, folder path, and thumb path from the database
-$selectQuery = "SELECT website_url, folder_path, thumb_path, number_page FROM settings WHERE id = 1"; // Corrected this line
-$result = $db->querySingle($selectQuery, true);
+// Handle data based on display type
+if ($display === 'info') {
+  // Assuming the 'info' display needs to fetch specific details, adjust as necessary
+  $artworkData = $data;
+} else {
+  if (!isset($data['images']) || !is_array($data['images'])) {
+    die('Invalid data format received from API.');
+  }
 
-if ($result) {
-  $websiteUrl = $result['website_url'];
-  $folderPath = $result['folder_path'];
-  $thumbPath = $result['thumb_path'];
-  $numPage = $result['number_page'];
+  $allImages = $data['images'];
+
+  // Handle pagination
+  $totalImages = count($allImages);
+  $imagesPerPage = 18;
+  $totalPages = ceil($totalImages / $imagesPerPage);
+  $startIndex = ($page - 1) * $imagesPerPage;
+  $currentPageImages = array_slice($allImages, $startIndex, $imagesPerPage);
 }
 ?>
 
 <!DOCTYPE html>
 <html lang="en" data-bs-theme="dark">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>ArtCODE - Preview</title>
-    <link rel="icon" type="image/png" href="<?php echo $websiteUrl; ?>/icon/favicon.png">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-4bw+/aepP/YC94hEpVNVgiZdgIC5+VKNBQNGCHeKRQN+PtmoHDEXuppvnDJzQIu9" crossorigin="anonymous">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
-  </head>
-  <body>
-    <nav class="navbar navbar-expand-lg bg-body-tertiary shadow">
-      <div class="container-fluid gap-2 justify-content-end">
-        <a class="navbar-brand me-auto fw-bold" href="index.php">ArtCODE</a>
-        <button id="themeToggle" class="btn btn-primary fw-bold">
-          <i id="themeIcon" class="bi"></i> toggle theme
-        </button>
-      </div>
-    </nav>
-    <button type="button" class="position-fixed z-3 bottom-0 end-0 m-2 btn btn-dark rounded-pill fw-bold" data-bs-toggle="modal" data-bs-target="#settingsModal">
-      settings
-    </button>
-    <?php
-      $limit = !empty($numPage) ? $numPage : 10;
-      $page = isset($_GET['page']) ? intval($_GET['page']) : 1;
-      $offset = ($page - 1) * $limit;
-
-      $sourceApiUrl = $websiteUrl . '/api.php'; // Construct API URL based on user input
-
-      try {
-        $json = @file_get_contents($sourceApiUrl);
-        if ($json === false) {
-          throw new Exception("<h5 class='text-center'>Error fetching data from API</h5>");
-        }
-
-        $data = json_decode($json, true);
-
-        if (!is_array($data) || empty($data)) {
-          throw new Exception("<h5 class='text-center'>No data found</h5>");
-        }
-
-        $images = $data['images'];
-        $imageChildData = $data['image_child'];
-
-        $totalImages = count($images);
-        $totalPages = ceil($totalImages / $limit); // Calculate total number of pages
-
-        // Display images within the specified limit and offset
-        $displayImages = array_slice($images, $offset, $limit);
-      } catch (Exception $e) {
-        echo "<div class='d-flex justify-content-center align-items-center vh-100'><h5 class='text-center mt-3 fw-bold'>Error or nothing found: </h5></div>" . $e->getMessage();
-      }
-    ?>
-    <?php include('images.php'); ?>
-    <?php include('settings.php'); ?>
-    <div class="pagination d-flex gap-1 justify-content-center mt-3">
-      <?php if (isset($page) && isset($totalPages)): ?>
-        <a class="btn btn-sm btn-primary fw-bold" href="?page=1"><i class="bi text-stroke bi-chevron-double-left"></i></a>
-      <?php endif; ?>
-
-      <?php if (isset($page) && $page > 1): ?>
-        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page - 1; ?>"><i class="bi text-stroke bi-chevron-left"></i></a>
-      <?php endif; ?>
-
-      <?php
-        if (isset($page) && isset($totalPages)) {
-          // Calculate the range of page numbers to display
-          $startPage = max($page - 2, 1);
-          $endPage = min($page + 2, $totalPages);
-
-          // Display page numbers within the range
-          for ($i = $startPage; $i <= $endPage; $i++) {
-            if ($i === $page) {
-              echo '<span class="btn btn-sm btn-primary active fw-bold">' . $i . '</span>';
-            } else {
-              echo '<a class="btn btn-sm btn-primary fw-bold" href="?page=' . $i . '">' . $i . '</a>';
-            }
-          }
-        }
-      ?>
-
-      <?php if (isset($page) && isset($totalPages) && $page < $totalPages): ?>
-        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $page + 1; ?>"><i class="bi text-stroke bi-chevron-right"></i></a>
-      <?php endif; ?>
-
-      <?php if (isset($page) && isset($totalPages)): ?>
-        <a class="btn btn-sm btn-primary fw-bold" href="?page=<?php echo $totalPages; ?>"><i class="bi text-stroke bi-chevron-double-right"></i></a>
-      <?php endif; ?>
-    </div>
-    <div class="my-5 text-center"><a class="text-decoration-none fw-medium" href="table.php"><i class="bi bi-table"></i> show all data</a></div>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArtCODE API</title>
+    <?php include('bootstrap.php'); ?>
     <style>
       .text-stroke {
         -webkit-text-stroke: 1px;
       }
-
-      /* For Webkit-based browsers */
-      ::-webkit-scrollbar {
-        width: 0;
-        height: 0;
-        border-radius: 10px;
-      }
-
-      ::-webkit-scrollbar-track {
-        border-radius: 0;
-      }
-
-      ::-webkit-scrollbar-thumb {
-        border-radius: 0;
-      }
-
-      .text-shadow {
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4), 2px 2px 4px rgba(0, 0, 0, 0.3), 3px 3px 6px rgba(0, 0, 0, 0.2);
-      }
     </style>
-    <script>
-      // Get the theme toggle button, icon element, and html element
-      const themeToggle = document.getElementById('themeToggle');
-      const themeIcon = document.getElementById('themeIcon');
-      const htmlElement = document.documentElement;
+  </head>
+  <body>
+    <?php include('navbar.php'); ?>
+    <div class="my-2">
+      <button type="button" class="btn bg-body-tertiary ms-2 border-0 rounded-pill fw-bold" data-bs-toggle="modal" data-bs-target="#settingsModal">
+        <i class="bi bi-filter-left"></i> filter
+      </button>
+    </div>
+    <div class="w-100 px-1 mt-1">
+      <!-- Image Grid -->
+      <div class="row row-cols-2 row-cols-sm-2 row-cols-md-4 row-cols-lg-6 g-1">
+        <?php if (isset($currentPageImages) && is_array($currentPageImages)): ?>
+          <?php foreach ($currentPageImages as $image): ?>
+            <div class="col">
+              <div class="card border-0 rounded-4">
+                <a href="view.php?artworkid=<?php echo $image['id']; ?>&display=info&back=<?php echo urlencode('http' . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 's' : '') . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']); ?>">
+                  <div class="ratio ratio-1x1">
+                    <img data-src="<?php echo $baseUrl; ?>/thumbnails/<?php echo $image['filename']; ?>" class="rounded object-fit-cover lazy-load" alt="<?php echo $image['title']; ?>">
+                  </div>
+                </a>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        <?php else: ?>
+          <p>No images found.</p>
+        <?php endif; ?>
+      </div>
+    </div>
 
-      // Check if the user's preference is stored in localStorage
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme) {
-        htmlElement.setAttribute('data-bs-theme', savedTheme);
-        updateThemeIcon(savedTheme);
-      }
-
-      // Add an event listener to the theme toggle button
-      themeToggle.addEventListener('click', () => {
-        // Toggle the theme
-        const currentTheme = htmlElement.getAttribute('data-bs-theme');
-        const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    <!-- Pagination -->
+    <div class="pagination d-flex gap-1 justify-content-center mt-3">
+      <?php if ($page > 1): ?>
+        <?php
+          // Calculate previous page URLs
+          $prevPage = $page - 1;
+          $prevPageUrl = http_build_query(array_merge($_GET, ['page' => 1]));
+          $prevUrl = "?$prevPageUrl";
+          $prevPageUrl = http_build_query(array_merge($_GET, ['page' => $prevPage]));
+          $prevPageUrl = "?$prevPageUrl";
+        ?>
+        <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $prevUrl; ?>"><i class="bi text-stroke bi-chevron-double-left"></i></a>
+        <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $prevPageUrl; ?>"><i class="bi text-stroke bi-chevron-left"></i></a>
+      <?php endif; ?>
     
-        // Apply the new theme
-        htmlElement.setAttribute('data-bs-theme', newTheme);
-        updateThemeIcon(newTheme);
-
-        // Store the user's preference in localStorage
-        localStorage.setItem('theme', newTheme);
-      });
-
-      // Function to update the theme icon
-      function updateThemeIcon(theme) {
-        if (theme === 'dark') {
-          themeIcon.classList.remove('bi-moon-fill');
-          themeIcon.classList.add('bi-sun-fill');
-        } else {
-          themeIcon.classList.remove('bi-sun-fill');
-          themeIcon.classList.add('bi-moon-fill');
+      <?php
+        // Calculate the range of page numbers to display
+        $startPage = max($page - 2, 1);
+        $endPage = min($page + 2, $totalPages);
+    
+        // Display page numbers within the range
+        for ($i = $startPage; $i <= $endPage; $i++) {
+          $queryParams = array_merge($_GET, ['page' => $i]);
+          $pageUrl = http_build_query($queryParams);
+          $url = "?$pageUrl";
+          if ($i === $page) {
+            echo '<span class="btn btn-sm btn-primary active fw-bold">' . $i . '</span>';
+          } else {
+            echo '<a class="btn btn-sm btn-primary fw-bold" href="' . $url . '">' . $i . '</a>';
+          }
         }
-      }
-    </script>
+      ?>
+    
+      <?php if ($page < $totalPages): ?>
+        <?php
+          // Calculate next and last page URLs
+          $nextPage = $page + 1;
+          $nextPageUrl = http_build_query(array_merge($_GET, ['page' => $nextPage]));
+          $nextPageUrl = "?$nextPageUrl";
+          $lastPageUrl = http_build_query(array_merge($_GET, ['page' => $totalPages]));
+          $lastPageUrl = "?$lastPageUrl";
+        ?>
+        <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $nextPageUrl; ?>"><i class="bi text-stroke bi-chevron-right"></i></a>
+        <a class="btn btn-sm btn-primary fw-bold" href="<?php echo $lastPageUrl; ?>"><i class="bi text-stroke bi-chevron-double-right"></i></a>
+      <?php endif; ?>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0">
+          <div class="modal-header border-0">
+            <h1 class="modal-title fs-5" id="exampleModalLabel">Filter</h1>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <form action="" method="get" class="modal-body border-0">
+            <input type="hidden" name="display" class="form-control bg-body-tertiary border-0" placeholder="Display" value="<?php echo $display; ?>">
+            <div class="mb-2">
+              <input type="text" name="search" class="form-control bg-body-tertiary border-0" placeholder="Search" value="<?php echo htmlspecialchars($search, ENT_QUOTES, 'UTF-8'); ?>">
+            </div>
+            <div class="mb-2">
+              <select name="sortby" class="form-select bg-body-tertiary border-0">
+                <option value="newest" <?php echo $sortBy === 'newest' ? 'selected' : ''; ?>>Newest</option>
+                <option value="oldest" <?php echo $sortBy === 'oldest' ? 'selected' : ''; ?>>Oldest</option>
+                <option value="popular" <?php echo $sortBy === 'popular' ? 'selected' : ''; ?>>Most Popular</option>
+                <option value="view" <?php echo $sortBy === 'view' ? 'selected' : ''; ?>>Most Viewed</option>
+                <option value="least" <?php echo $sortBy === 'least' ? 'selected' : ''; ?>>Least Viewed</option>
+              </select>
+            </div>
+            <div class="mb-2">
+              <select name="rankings" class="form-select bg-body-tertiary border-0">
+                <option value="" <?php echo empty($rankings) ? 'selected' : ''; ?>>No Ranking</option>
+                <option value="daily" <?php echo $rankings === 'daily' ? 'selected' : ''; ?>>Daily</option>
+                <option value="weekly" <?php echo $rankings === 'weekly' ? 'selected' : ''; ?>>Weekly</option>
+                <option value="monthly" <?php echo $rankings === 'monthly' ? 'selected' : ''; ?>>Monthly</option>
+                <option value="yearly" <?php echo $rankings === 'yearly' ? 'selected' : ''; ?>>Yearly</option>
+              </select>
+            </div>
+            <div class="mb-2">
+              <select name="artwork_type" class="form-select bg-body-tertiary border-0">
+                <option value="" <?php echo empty($rankings) ? 'selected' : ''; ?>>No Artwork Type</option>
+                <option value="illustration" <?php echo $artworkType === 'illustration' ? 'selected' : ''; ?>>Illustration</option>
+                <option value="manga" <?php echo $artworkType === 'manga' ? 'selected' : ''; ?>>Manga</option>
+                <!-- Add more options as needed -->
+              </select>
+            </div>
+            <div class="mb-2">
+              <select name="type" class="form-select bg-body-tertiary border-0">
+                <option value="" <?php echo empty($rankings) ? 'selected' : ''; ?>>No Type</option>
+                <option value="safe" <?php echo $type === 'safe' ? 'selected' : ''; ?>>Safe</option>
+                <option value="nsfw" <?php echo $type === 'nsfw' ? 'selected' : ''; ?>>NSFW</option>
+                <!-- Add more options as needed -->
+              </select>
+            </div>
+            <div class="mb-2">
+              <input type="text" name="tag" class="form-control bg-body-tertiary border-0" placeholder="Tag" value="<?php echo $tag; ?>">
+            </div>
+            <div class="mb-2">
+              <input type="text" name="character" class="form-control bg-body-tertiary border-0" placeholder="Character" value="<?php echo $character; ?>">
+            </div>
+            <div class="mb-2">
+              <input type="text" name="parody" class="form-control bg-body-tertiary border-0" placeholder="Parody" value="<?php echo $parody; ?>">
+            </div>
+            <div class="mb-2">
+              <input type="number" name="uid" class="form-control bg-body-tertiary border-0" placeholder="User ID" value="<?php echo $uid; ?>">
+            </div>
+            <div class="mb-2">
+              <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="mt-5"></div>
+    <script type="module" src="mode.js"></script>
     <script>
       let lazyloadImages = document.querySelectorAll(".lazy-load");
       let imageContainer = document.getElementById("image-container");
 
       // Set the default placeholder image
-      const defaultPlaceholder = "<?php echo $websiteUrl; ?>/icon/bg.png";
+      const defaultPlaceholder = "<?php echo $baseUrl; ?>/icon/bg.png";
 
       if ("IntersectionObserver" in window) {
         let imageObserver = new IntersectionObserver(function(entries, observer) {
@@ -289,7 +301,5 @@ if ($result) {
       // Initial loading
       loadMoreImages();
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.min.js" integrity="sha384-Rx+T1VzGupg4BHQYs2gCW9It+akI2MM/mndMCy36UVfodzcJcF0GGLxZIzObiEfa" crossorigin="anonymous"></script>
   </body>
 </html>
